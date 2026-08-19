@@ -1,0 +1,4 @@
+*pycache*
+venv/
+side_file.txt
+ingestion/NBA_2004_2025_Shots.csv
