@@ -51,6 +51,19 @@ services:
     volumes:
       - ./api:/app                                      # live-reload code during dev
 
+  # ── React Frontend ───────────────────────────────────────────────────────────
+  frontend:
+    build: ./frontend
+    container_name: bucket_chart_frontend
+    restart: "no"
+    ports:
+      - "5173:5173"                                     # Vite default dev port
+    volumes:
+      - ./frontend:/app                                 # live-reload code during dev
+      - /app/node_modules                               # keep node_modules in container
+    depends_on:
+      - api
+
   # ── pgAdmin (dev only — remove in production) ────────────────────────────────
   pgadmin:
     image: dpage/pgadmin4:latest
