@@ -4,13 +4,18 @@ main.py — Bucket Chart API
 FastAPI backend for the Bucket Chart shot chart application.
 
 Endpoints:
-  GET /                           — health check
-  GET /teams                      — all 30 NBA teams for dropdown
-  GET /players/search?name=       — player autocomplete search
+  GET /                                — health check
+  GET /teams                           — all 30 NBA teams for dropdown
+  GET /teams/{team_id}/players?date_from=&date_to=
+                                       — players who played for this team
+                                         (optionally scoped to a date range)
+  GET /players/search?name=            — player autocomplete search
   GET /shots?player_id=&team_id=&date_from=&date_to=
-                                  — filtered shot data for chart rendering
+                                       — filtered shot data for chart rendering
 
-Filters on /shots are all optional but at least one must be provided.
+player_id and team_id are both required on /shots — a chart is always scoped
+to a specific player's shots while they played for a specific team. At least
+one of date_from/date_to is required as well.
 Returns only the fields needed for frontend rendering.
 """
 
@@ -151,6 +156,40 @@ def get_teams():
         return teams
 
 
+@app.get("/teams/{team_id}/players", response_model=list[PlayerResponse])
+def get_team_players(
+    team_id:   int,
+    date_from: Optional[date] = Query(None, description="Only players with a shot on/after this date"),
+    date_to:   Optional[date] = Query(None, description="Only players with a shot on/before this date"),
+):
+    """
+    Returns players who have at least one recorded shot for this team,
+    sorted by name. Used to populate the player dropdown once a team has
+    been selected — driven by shot history (shots.team_id) rather than
+    players.team_id, since the latter only reflects a player's current team.
+
+    If date_from/date_to are given, only players with a shot for this team
+    within that range are returned — supports the flow where a date range
+    is picked before the team/player.
+
+    Example: /teams/1610612738/players?date_from=2023-10-01&date_to=2024-06-30
+             → players who played for the Celtics during the 2023-24 season
+    """
+    with Session(engine) as session:
+        query = (
+            session.query(Player)
+            .join(Shot, Shot.player_id == Player.player_id)
+            .filter(Shot.team_id == team_id)
+        )
+        if date_from:
+            query = query.filter(Shot.game_date >= date_from)
+        if date_to:
+            query = query.filter(Shot.game_date <= date_to)
+
+        players = query.distinct().order_by(Player.full_name).all()
+        return players
+
+
 @app.get("/players/search", response_model=list[PlayerResponse])
 def search_players(
     name: str = Query(..., min_length=1, description="Player name search string")
@@ -174,28 +213,24 @@ def search_players(
 
 @app.get("/shots", response_model=list[ShotResponse])
 def get_shots(
-    player_id:  Optional[int]  = Query(None, description="Filter by player ID"),
-    team_id:    Optional[int]  = Query(None, description="Filter by team ID"),
+    player_id:  int            = Query(..., description="Player ID (required)"),
+    team_id:    int            = Query(..., description="Team ID the player was on for these shots (required)"),
     date_from:  Optional[date] = Query(None, description="Start date (YYYY-MM-DD)"),
     date_to:    Optional[date] = Query(None, description="End date (YYYY-MM-DD)"),
 ):
     """
-    Returns shot data for chart rendering.
-    At least one filter must be provided — returns empty list if none are given.
-    All filters are combined with AND logic.
+    Returns shot data for chart rendering, scoped to a specific player while
+    they played for a specific team. player_id and team_id are both required —
+    a chart is always for one player's shots taken as a member of one team.
+    At least one of date_from/date_to is also required.
 
-    Example: /shots?player_id=1628369&date_from=2024-01-01&date_to=2024-04-01
+    Example: /shots?player_id=1628369&team_id=1610612738&date_from=2024-01-01&date_to=2024-04-01
     """
-    # Enforce at least one filter — return empty list if none provided
-    if not any([player_id, team_id, date_from, date_to]):
-        return []
-
-    # Enforce date range whenever player or team filter is used alone
-    if (player_id or team_id) and not (date_from or date_to):
+    if not (date_from or date_to):
         raise HTTPException(
-        status_code=400,
-        detail="A date range (date_from and/or date_to) is required when filtering by player or team."
-    )
+            status_code=400,
+            detail="A date range (date_from and/or date_to) is required.",
+        )
 
     with Session(engine) as session:
         query = session.query(
@@ -206,13 +241,11 @@ def get_shots(
             Shot.action_type,
             Shot.shot_zone_basic,
             Shot.game_date,
+        ).filter(
+            Shot.player_id == player_id,
+            Shot.team_id == team_id,
         )
 
-        # Apply filters conditionally — only add a filter if the value was provided
-        if player_id:
-            query = query.filter(Shot.player_id == player_id)
-        if team_id:
-            query = query.filter(Shot.team_id == team_id)
         if date_from:
             query = query.filter(Shot.game_date >= date_from)
         if date_to:
