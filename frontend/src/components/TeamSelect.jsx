@@ -8,9 +8,7 @@ function TeamSelect({ teams, selectedTeamId, onChange, loading, error }) {
         onChange={(e) => onChange(e.target.value)}
         disabled={loading}
       >
-        <option value="">
-          {loading ? 'Loading teams…' : 'Select a team…'}
-        </option>
+        <option value="">{loading ? 'Loading teams…' : 'Select a team…'}</option>
         {teams.map((team) => (
           <option key={team.team_id} value={team.team_id}>
             {team.name}

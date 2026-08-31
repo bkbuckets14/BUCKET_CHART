@@ -8,8 +8,7 @@
   --accent-bg: rgba(232, 114, 12, 0.1);
   --accent-border: rgba(232, 114, 12, 0.5);
   --social-bg: rgba(243, 230, 209, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
   --court-line: #1b140d;
   --court-fill: #fdf6ec;
@@ -46,8 +45,7 @@
     --accent-bg: rgba(255, 140, 43, 0.15);
     --accent-border: rgba(255, 140, 43, 0.5);
     --social-bg: rgba(58, 47, 36, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+    --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
 
     --court-line: #f5ece1;
     --court-fill: #171310;

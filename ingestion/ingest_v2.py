@@ -1,6 +1,5 @@
 """
-ingest_v2.py
-Bucket Chart CSV Loader
+ingest_v2.py — Bucket Chart CSV Loader
 =======================================
 Loads NBA shot data from the NBA_Shots_04_25 CSV dataset
 into PostgreSQL via SQLAlcemy.
@@ -45,7 +44,16 @@ import logging
 from datetime import datetime
 
 import pandas as pd
-from sqlalchemy import create_engine, Column, Integer, Text, Boolean, Date, ForeignKey, Numeric
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    Text,
+    Boolean,
+    Date,
+    ForeignKey,
+    Numeric,
+)
 from sqlalchemy.orm import declarative_base, Session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -55,9 +63,9 @@ from nba_api.stats.static import teams as static_teams
 # CONFIG
 # =============================================================================
 
-CSV_FILE     = "NBA_2004_2025_Shots.csv"
-SEASON_TYPE  = "Regular Season"      # CSV only contains regular season data
-CHUNK_SIZE   = 10_000                # rows to process at a time
+CSV_FILE = "NBA_2004_2025_Shots.csv"
+SEASON_TYPE = "Regular Season"  # CSV only contains regular season data
+CHUNK_SIZE = 10_000  # rows to process at a time
 DATABASE_URL = os.environ["DATABASE_URL"]
 
 logging.basicConfig(
@@ -78,32 +86,32 @@ Base = declarative_base()
 class Team(Base):
     __tablename__ = "teams"
 
-    team_id      = Column(Integer, primary_key=True)
-    name         = Column(Text, nullable=False)
+    team_id = Column(Integer, primary_key=True)
+    name = Column(Text, nullable=False)
     abbreviation = Column(Text, nullable=False)
-    city         = Column(Text, nullable=False)
-    state        = Column(Text)
+    city = Column(Text, nullable=False)
+    state = Column(Text)
     year_founded = Column(Integer)
 
 
 class Player(Base):
     __tablename__ = "players"
 
-    player_id  = Column(Integer, primary_key=True)
+    player_id = Column(Integer, primary_key=True)
     first_name = Column(Text, nullable=False)
-    last_name  = Column(Text, nullable=False)
-    full_name  = Column(Text, nullable=False)
-    is_active  = Column(Boolean, nullable=False, default=True)
-    team_id    = Column(Integer, ForeignKey("teams.team_id"))
+    last_name = Column(Text, nullable=False)
+    full_name = Column(Text, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    team_id = Column(Integer, ForeignKey("teams.team_id"))
 
 
 class Game(Base):
     __tablename__ = "games"
 
-    game_id      = Column(Text, primary_key=True)
-    game_date    = Column(Date, nullable=False)
-    season       = Column(Text, nullable=False)
-    season_type  = Column(Text, nullable=False)
+    game_id = Column(Text, primary_key=True)
+    game_date = Column(Date, nullable=False)
+    season = Column(Text, nullable=False)
+    season_type = Column(Text, nullable=False)
     home_team_id = Column(Integer, ForeignKey("teams.team_id"), nullable=False)
     away_team_id = Column(Integer, ForeignKey("teams.team_id"), nullable=False)
 
@@ -111,30 +119,31 @@ class Game(Base):
 class Shot(Base):
     __tablename__ = "shots"
 
-    shot_id           = Column(Integer, primary_key=True, autoincrement=True)
-    player_id         = Column(Integer, ForeignKey("players.player_id"), nullable=False)
-    team_id           = Column(Integer, ForeignKey("teams.team_id"), nullable=False)
-    game_id           = Column(Text, ForeignKey("games.game_id"), nullable=False)
-    game_date         = Column(Date, nullable=False)
-    season            = Column(Text, nullable=False)
-    period            = Column(Integer, nullable=False)
+    shot_id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.team_id"), nullable=False)
+    game_id = Column(Text, ForeignKey("games.game_id"), nullable=False)
+    game_date = Column(Date, nullable=False)
+    season = Column(Text, nullable=False)
+    period = Column(Integer, nullable=False)
     minutes_remaining = Column(Integer, nullable=False)
     seconds_remaining = Column(Integer, nullable=False)
-    shot_made         = Column(Boolean, nullable=False)
-    loc_x             = Column(Numeric(6, 2), nullable=False)
-    loc_y             = Column(Numeric(6, 2), nullable=False)
-    shot_distance     = Column(Integer, nullable=False)
-    shot_type         = Column(Text, nullable=False)
-    action_type       = Column(Text, nullable=False)
-    shot_zone_basic   = Column(Text, nullable=False)
-    shot_zone_area    = Column(Text, nullable=False)
-    shot_zone_range   = Column(Text, nullable=False)
-    game_event_id     = Column(Integer)             # not in CSV, will be NULL
+    shot_made = Column(Boolean, nullable=False)
+    loc_x = Column(Numeric(6, 2), nullable=False)
+    loc_y = Column(Numeric(6, 2), nullable=False)
+    shot_distance = Column(Integer, nullable=False)
+    shot_type = Column(Text, nullable=False)
+    action_type = Column(Text, nullable=False)
+    shot_zone_basic = Column(Text, nullable=False)
+    shot_zone_area = Column(Text, nullable=False)
+    shot_zone_range = Column(Text, nullable=False)
+    game_event_id = Column(Integer)  # not in CSV, will be NULL
 
 
 # =============================================================================
 # HELPERS
 # =============================================================================
+
 
 def get_seasons(first_season: int) -> list:
     """
@@ -144,10 +153,9 @@ def get_seasons(first_season: int) -> list:
     seasons = []
 
     for season in range(first_season, 2025, 1):
-        seasons.append(str(season)+"-"+str((season+1)%100))
+        seasons.append(str(season) + "-" + str((season + 1) % 100))
 
     return seasons
-
 
 
 def upsert_teams(session: Session) -> dict:
@@ -159,14 +167,18 @@ def upsert_teams(session: Session) -> dict:
     all_teams = static_teams.get_teams()
 
     for t in all_teams:
-        stmt = pg_insert(Team).values(
-            team_id      = t["id"],
-            name         = t["full_name"],
-            abbreviation = t["abbreviation"],
-            city         = t["city"],
-            state        = t["state"],
-            year_founded = t["year_founded"],
-        ).on_conflict_do_nothing(index_elements=["team_id"])
+        stmt = (
+            pg_insert(Team)
+            .values(
+                team_id=t["id"],
+                name=t["full_name"],
+                abbreviation=t["abbreviation"],
+                city=t["city"],
+                state=t["state"],
+                year_founded=t["year_founded"],
+            )
+            .on_conflict_do_nothing(index_elements=["team_id"])
+        )
         session.execute(stmt)
 
     session.commit()
@@ -181,28 +193,34 @@ def upsert_players_from_df(session: Session, df: pd.DataFrame) -> None:
     Splits PLAYER_NAME into first/last on the first space.
     """
     log.info("Upserting players...")
-    unique_players = df[["PLAYER_ID", "PLAYER_NAME", "TEAM_ID"]].drop_duplicates("PLAYER_ID")
+    unique_players = df[["PLAYER_ID", "PLAYER_NAME", "TEAM_ID"]].drop_duplicates(
+        "PLAYER_ID"
+    )
 
     for _, row in unique_players.iterrows():
-        parts      = str(row["PLAYER_NAME"]).strip().split(" ", 1)
+        parts = str(row["PLAYER_NAME"]).strip().split(" ", 1)
         first_name = parts[0]
-        last_name  = parts[1] if len(parts) > 1 else ""
-        team_id    = int(row["TEAM_ID"]) if pd.notna(row["TEAM_ID"]) else None
+        last_name = parts[1] if len(parts) > 1 else ""
+        team_id = int(row["TEAM_ID"]) if pd.notna(row["TEAM_ID"]) else None
 
-        stmt = pg_insert(Player).values(
-            player_id  = int(row["PLAYER_ID"]),
-            first_name = first_name,
-            last_name  = last_name,
-            full_name  = str(row["PLAYER_NAME"]),
-            is_active  = True,
-            team_id    = team_id,
-        ).on_conflict_do_update(
-            index_elements = ["player_id"],
-            set_           = {
-                "full_name": str(row["PLAYER_NAME"]),
-                "is_active": True,
-                "team_id":   team_id,
-            }
+        stmt = (
+            pg_insert(Player)
+            .values(
+                player_id=int(row["PLAYER_ID"]),
+                first_name=first_name,
+                last_name=last_name,
+                full_name=str(row["PLAYER_NAME"]),
+                is_active=True,
+                team_id=team_id,
+            )
+            .on_conflict_do_update(
+                index_elements=["player_id"],
+                set_={
+                    "full_name": str(row["PLAYER_NAME"]),
+                    "is_active": True,
+                    "team_id": team_id,
+                },
+            )
         )
         session.execute(stmt)
 
@@ -220,7 +238,9 @@ def upsert_games_from_df(
     Resolves HOME_TEAM/AWAY_TEAM abbreviations to team_ids.
     """
     log.info("Upserting games...")
-    unique_games = df[["SEASON_2", "GAME_DATE", "GAME_ID", "HOME_TEAM", "AWAY_TEAM"]].drop_duplicates("GAME_ID")
+    unique_games = df[
+        ["SEASON_2", "GAME_DATE", "GAME_ID", "HOME_TEAM", "AWAY_TEAM"]
+    ].drop_duplicates("GAME_ID")
     skipped = 0
 
     for _, row in unique_games.iterrows():
@@ -228,22 +248,28 @@ def upsert_games_from_df(
         away_team_id = abbr_to_id.get(str(row["AWAY_TEAM"]))
 
         if not home_team_id or not away_team_id:
-            log.warning(f"  Could not resolve teams for game {row['GAME_ID']} "
-                        f"(HOME={row['HOME_TEAM']}, AWAY={row['AWAY_TEAM']}) — skipping.")
+            log.warning(
+                f"  Could not resolve teams for game {row['GAME_ID']} "
+                f"(HOME={row['HOME_TEAM']}, AWAY={row['AWAY_TEAM']}) — skipping."
+            )
             skipped += 1
             continue
 
         # CSV date format is MM-DD-YYYY
         game_date = datetime.strptime(str(row["GAME_DATE"]), "%m-%d-%Y").date()
 
-        stmt = pg_insert(Game).values(
-            game_id      = str(row["GAME_ID"]),
-            game_date    = game_date,
-            season       = str(row["SEASON_2"]),
-            season_type  = SEASON_TYPE,
-            home_team_id = home_team_id,
-            away_team_id = away_team_id,
-        ).on_conflict_do_nothing(index_elements=["game_id"])
+        stmt = (
+            pg_insert(Game)
+            .values(
+                game_id=str(row["GAME_ID"]),
+                game_date=game_date,
+                season=str(row["SEASON_2"]),
+                season_type=SEASON_TYPE,
+                home_team_id=home_team_id,
+                away_team_id=away_team_id,
+            )
+            .on_conflict_do_nothing(index_elements=["game_id"])
+        )
         session.execute(stmt)
 
     session.commit()
@@ -261,26 +287,28 @@ def insert_shots_from_df(session: Session, df: pd.DataFrame) -> int:
     for _, row in df.iterrows():
         game_date = datetime.strptime(str(row["GAME_DATE"]), "%m-%d-%Y").date()
 
-        shots.append({
-            "player_id":         int(row["PLAYER_ID"]),
-            "team_id":           int(row["TEAM_ID"]),
-            "game_id":           str(row["GAME_ID"]),
-            "game_date":         game_date,
-            "season":            str(row["SEASON_2"]),
-            "period":            int(row["QUARTER"]),
-            "minutes_remaining": int(row["MINS_LEFT"]),
-            "seconds_remaining": int(row["SECS_LEFT"]),
-            "shot_made":         str(row["SHOT_MADE"]).strip().upper() == "TRUE",
-            "loc_x":             float(row["LOC_X"]),
-            "loc_y":             float(row["LOC_Y"]),
-            "shot_distance":     int(row["SHOT_DISTANCE"]),
-            "shot_type":         str(row["SHOT_TYPE"]),
-            "action_type":       str(row["ACTION_TYPE"]),
-            "shot_zone_basic":   str(row["BASIC_ZONE"]),
-            "shot_zone_area":    str(row["ZONE_NAME"]),
-            "shot_zone_range":   str(row["ZONE_RANGE"]),
-            "game_event_id":     None,   # not available in CSV
-        })
+        shots.append(
+            {
+                "player_id": int(row["PLAYER_ID"]),
+                "team_id": int(row["TEAM_ID"]),
+                "game_id": str(row["GAME_ID"]),
+                "game_date": game_date,
+                "season": str(row["SEASON_2"]),
+                "period": int(row["QUARTER"]),
+                "minutes_remaining": int(row["MINS_LEFT"]),
+                "seconds_remaining": int(row["SECS_LEFT"]),
+                "shot_made": str(row["SHOT_MADE"]).strip().upper() == "TRUE",
+                "loc_x": float(row["LOC_X"]),
+                "loc_y": float(row["LOC_Y"]),
+                "shot_distance": int(row["SHOT_DISTANCE"]),
+                "shot_type": str(row["SHOT_TYPE"]),
+                "action_type": str(row["ACTION_TYPE"]),
+                "shot_zone_basic": str(row["BASIC_ZONE"]),
+                "shot_zone_area": str(row["ZONE_NAME"]),
+                "shot_zone_range": str(row["ZONE_RANGE"]),
+                "game_event_id": None,  # not available in CSV
+            }
+        )
 
     if shots:
         stmt = pg_insert(Shot).values(shots).on_conflict_do_nothing()
@@ -294,6 +322,7 @@ def insert_shots_from_df(session: Session, df: pd.DataFrame) -> int:
 # MAIN
 # =============================================================================
 
+
 def main():
     seasons = get_seasons(2019)
 
@@ -304,7 +333,9 @@ def main():
     # Confirm CSV exists
     if not os.path.exists(CSV_FILE):
         log.error(f"CSV file not found: {CSV_FILE}")
-        log.error("Make sure NBA_2004_2025_Shots.csv is in the same folder as this script.")
+        log.error(
+            "Make sure NBA_2004_2025_Shots.csv is in the same folder as this script."
+        )
         return
 
     engine = create_engine(DATABASE_URL)
@@ -318,11 +349,15 @@ def main():
         log.info(f"Reading CSV and filtering to {', '.join(seasons)}...")
         df_full = pd.read_csv(CSV_FILE, low_memory=False)
         df = df_full[df_full["SEASON_2"].isin(seasons)].copy()
-        log.info(f"  {len(df):,} rows found for {', '.join(seasons)} "
-                 f"(out of {len(df_full):,} total rows).")
+        log.info(
+            f"  {len(df):,} rows found for {', '.join(seasons)} "
+            f"(out of {len(df_full):,} total rows)."
+        )
 
         if df.empty:
-            log.error(f"No rows found for seasons {', '.join(seasons)}. Check the seasons submitted.")
+            log.error(
+                f"No rows found for seasons {', '.join(seasons)}. Check the seasons submitted."
+            )
             return
 
         # ── Stage 3: Players ──────────────────────────────────────────────────
@@ -334,12 +369,14 @@ def main():
         # ── Stage 5: Shots (chunked) ──────────────────────────────────────────
         log.info(f"Inserting shots in chunks of {CHUNK_SIZE:,}...")
         total_shots = 0
-        chunks = [df.iloc[i:i + CHUNK_SIZE] for i in range(0, len(df), CHUNK_SIZE)]
+        chunks = [df.iloc[i : i + CHUNK_SIZE] for i in range(0, len(df), CHUNK_SIZE)]
 
         for i, chunk in enumerate(chunks, start=1):
             count = insert_shots_from_df(session, chunk)
             total_shots += count
-            log.info(f"  Chunk {i}/{len(chunks)} — {total_shots:,} shots inserted so far.")
+            log.info(
+                f"  Chunk {i}/{len(chunks)} — {total_shots:,} shots inserted so far."
+            )
 
     log.info("=" * 60)
     log.info(f"Load complete. Total shots inserted: {total_shots:,}")

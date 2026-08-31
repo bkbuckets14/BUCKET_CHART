@@ -8,9 +8,7 @@ function PlayerSelect({ players, selectedPlayerId, onChange, loading, error, dis
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled || loading}
       >
-        <option value="">
-          {loading ? 'Loading players…' : 'Select a player…'}
-        </option>
+        <option value="">{loading ? 'Loading players…' : 'Select a player…'}</option>
         {players.map((player) => (
           <option key={player.player_id} value={player.player_id}>
             {player.full_name}

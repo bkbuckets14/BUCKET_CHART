@@ -53,7 +53,7 @@ function App() {
         if (cancelled) return
         setPlayers(data)
         setSelectedPlayerId((prev) =>
-          data.some((p) => String(p.player_id) === String(prev)) ? prev : ''
+          data.some((p) => String(p.player_id) === String(prev)) ? prev : '',
         )
       })
       .catch(() => {
@@ -78,7 +78,8 @@ function App() {
     if (!newTeamId) setPlayers([])
   }
 
-  const canGenerateChart = Boolean(selectedTeamId) && Boolean(selectedPlayerId) && Boolean(dateFrom || dateTo)
+  const canGenerateChart =
+    Boolean(selectedTeamId) && Boolean(selectedPlayerId) && Boolean(dateFrom || dateTo)
 
   function handleGenerateChart() {
     if (!canGenerateChart) return
@@ -134,10 +135,16 @@ function App() {
           {shotsLoading ? 'Loading…' : 'Generate Chart'}
         </button>
         {!canGenerateChart && selectedTeamId && selectedPlayerId && (
-          <StatusMessage kind="info" message="Select a date range (from and/or to) to generate the chart." />
+          <StatusMessage
+            kind="info"
+            message="Select a date range (from and/or to) to generate the chart."
+          />
         )}
         {!playersLoading && !playersError && selectedTeamId && players.length === 0 && (
-          <StatusMessage kind="empty" message="No players found for this team in the selected range." />
+          <StatusMessage
+            kind="empty"
+            message="No players found for this team in the selected range."
+          />
         )}
       </section>
 

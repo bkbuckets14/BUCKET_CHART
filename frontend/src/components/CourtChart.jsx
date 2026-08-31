@@ -61,7 +61,12 @@ function CourtChart({ shots, loading, error }) {
           height={paintBottomRight.y - paintTopLeft.y}
           className="court-line-shape"
         />
-        <circle cx={freeThrowCenter.x} cy={freeThrowCenter.y} r={6 * FT_TO_PX} className="court-line-shape" />
+        <circle
+          cx={freeThrowCenter.x}
+          cy={freeThrowCenter.y}
+          r={6 * FT_TO_PX}
+          className="court-line-shape"
+        />
         <path d={restrictedAreaPath} className="court-line-shape" />
         <line
           x1={backboardLeft.x}
@@ -91,7 +96,10 @@ function CourtChart({ shots, loading, error }) {
       {loading && <StatusMessage kind="info" message="Loading shot data…" />}
       {error && <StatusMessage kind="error" message={error} />}
       {!loading && !error && shots && shots.length === 0 && (
-        <StatusMessage kind="empty" message="No shots recorded for this player in the selected range." />
+        <StatusMessage
+          kind="empty"
+          message="No shots recorded for this player in the selected range."
+        />
       )}
       {!loading && !error && shots === null && (
         <div className="empty-state">
