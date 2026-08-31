@@ -4,8 +4,9 @@ import './CourtChart.css'
 
 const COURT_MIN_X = -25
 const COURT_MAX_X = 25
-const COURT_MIN_Y = -5.25 // baseline (5.25ft behind the hoop)
-const COURT_MAX_Y = 41.75 // half-court line
+const COURT_MIN_Y = 0 // baseline
+const COURT_MAX_Y = 47 // half-court line
+const HOOP_Y = 5.25 // hoop is 5.25ft from the baseline
 
 const SVG_WIDTH = 500
 const SVG_HEIGHT = 470
@@ -18,21 +19,21 @@ function feetToSvg(locX, locY) {
   return { x: xScale(locX), y: yScale(locY) }
 }
 
-const paintTopLeft = feetToSvg(-8, 13.75)
+const paintTopLeft = feetToSvg(-8, 19) // paint extends 19ft from the baseline
 const paintBottomRight = feetToSvg(8, COURT_MIN_Y)
-const freeThrowCenter = feetToSvg(0, 13.75)
-const backboardLeft = feetToSvg(-3, -1.25)
-const backboardRight = feetToSvg(3, -1.25)
-const rimCenter = feetToSvg(0, 0)
+const freeThrowCenter = feetToSvg(0, 19)
+const backboardLeft = feetToSvg(-3, HOOP_Y - 1.25)
+const backboardRight = feetToSvg(3, HOOP_Y - 1.25)
+const rimCenter = feetToSvg(0, HOOP_Y)
 
-const raLeft = feetToSvg(-4, 0)
-const raRight = feetToSvg(4, 0)
+const raLeft = feetToSvg(-4, HOOP_Y)
+const raRight = feetToSvg(4, HOOP_Y)
 const RA_RADIUS_PX = 4 * FT_TO_PX
 const restrictedAreaPath = `M ${raLeft.x} ${raLeft.y} A ${RA_RADIUS_PX} ${RA_RADIUS_PX} 0 0 1 ${raRight.x} ${raRight.y}`
 
 const THREE_PT_RADIUS = 23.75
 const CORNER_X = 22
-const CORNER_Y = Math.sqrt(THREE_PT_RADIUS ** 2 - CORNER_X ** 2)
+const CORNER_Y = HOOP_Y + Math.sqrt(THREE_PT_RADIUS ** 2 - CORNER_X ** 2)
 const threeLeftBaseline = feetToSvg(-CORNER_X, COURT_MIN_Y)
 const threeLeftArcStart = feetToSvg(-CORNER_X, CORNER_Y)
 const threeRightArcEnd = feetToSvg(CORNER_X, CORNER_Y)
