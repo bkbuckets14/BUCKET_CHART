@@ -19,8 +19,11 @@ if [ ! -f "/app/vite.config.js" ] && [ ! -f "/app/vite.config.ts" ]; then
     echo "React app created successfully."
 else
     cd /app
-    # App already exists — just install any missing dependencies
-    if [ ! -d "node_modules" ]; then
+    # App already exists — just install any missing dependencies.
+    # node_modules is an anonymous Docker volume, so it always exists as an
+    # empty directory on first boot; check whether it's actually populated
+    # rather than just present.
+    if [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
         echo "Installing dependencies..."
         npm install
     fi
