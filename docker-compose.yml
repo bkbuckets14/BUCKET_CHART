@@ -56,6 +56,9 @@ services:
     build: ./frontend
     container_name: bucket_chart_frontend
     restart: "no"
+    env_file: .env
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     ports:
       - "5173:5173"                                     # Vite default dev port
     volumes:
