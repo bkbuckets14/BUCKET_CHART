@@ -30,12 +30,15 @@
 }
 
 .shot-made {
-  fill: var(--shot-made);
+  fill: none;
+  stroke: var(--shot-made);
+  stroke-width: 1.5;
   opacity: 0.85;
 }
 
 .shot-missed {
-  fill: var(--shot-missed);
+  stroke: var(--shot-missed);
+  stroke-width: 1.5;
   opacity: 0.85;
 }
 

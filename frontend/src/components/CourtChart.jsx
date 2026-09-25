@@ -81,14 +81,14 @@ function CourtChart({ shots, loading, error }) {
         {shots &&
           shots.map((shot, i) => {
             const { x, y } = feetToSvg(shot.loc_x, shot.loc_y)
-            return (
-              <circle
-                key={i}
-                cx={x}
-                cy={y}
-                r={3}
-                className={shot.shot_made ? 'shot-made' : 'shot-missed'}
-              />
+            const r = 3.5
+            return shot.shot_made ? (
+              <circle key={i} cx={x} cy={y} r={r} className="shot-made" />
+            ) : (
+              <g key={i} className="shot-missed">
+                <line x1={x - r} y1={y - r} x2={x + r} y2={y + r} />
+                <line x1={x - r} y1={y + r} x2={x + r} y2={y - r} />
+              </g>
             )
           })}
       </svg>
