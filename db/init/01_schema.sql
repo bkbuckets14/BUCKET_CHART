@@ -74,7 +74,13 @@ CREATE TABLE IF NOT EXISTS shots (
     shot_zone_area      TEXT NOT NULL,      -- "Left Side", "Center", "Right Side", etc.
     shot_zone_range     TEXT NOT NULL,      -- "Less Than 8 ft", "8-16 ft", etc.
     -- Metadata
-    game_event_id       INTEGER             -- NBA's event ID within the game
+    game_event_id       INTEGER,            -- NBA's event ID within the game
+
+    -- Prevents duplicate shots on ingestion re-runs. NULL game_event_id (as
+    -- the CSV loader produces, since that dataset doesn't include it) never
+    -- counts as a match against anything else in Postgres, so this only
+    -- guards re-runs of the live API ingestion, which always sets it.
+    UNIQUE (player_id, game_id, game_event_id)
 );
 
 -- Indexes for the filters your UI will use most
