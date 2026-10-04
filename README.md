@@ -55,16 +55,16 @@ BUCKET_CHART/
 
 The `ingestion/` service populates `teams`, `players`, `games`, and `shots`. There are two ways to load data — pick one:
 
-- **Live NBA Stats API scrape (`ingest.py`, the default `docker-compose` ingestion command)** — pulls shot data directly from `stats.nba.com` via [`nba_api`](https://github.com/swar/nba_api) for the seasons listed in `SEASONS` (currently `2024-25` and `2025-26` — see `ingestion/ingest.py`):
+- **Live NBA Stats API scrape (`ingest_v2.py`, the default `docker-compose` ingestion command)** — pulls shot data directly from `stats.nba.com` via [`nba_api`](https://github.com/swar/nba_api) for the seasons listed in `SEASONS` (currently `2024-25` and `2025-26` — see `ingestion/ingest_v2.py`):
   ```
   docker compose up ingestion
   ```
 
-- **Bulk CSV load (`ingest_v2.py`)** — loads historical shot data from the [DomSamangy/NBA_Shots_04_25](https://github.com/DomSamangy/NBA_Shots_04_25) dataset. Download `NBA_2004_2025_Shots.csv` from that source and place it in `ingestion/` (not included in this repo, it's roughly 865 MB) before running:
+- **Bulk CSV load (`ingest.py`)** — loads historical shot data from the [DomSamangy/NBA_Shots_04_25](https://github.com/DomSamangy/NBA_Shots_04_25) dataset. Download `NBA_2004_2025_Shots.csv` from that source and place it in `ingestion/` (not included in this repo, it's roughly 865 MB) before running:
   ```
-  docker compose run --rm ingestion python ingest_v2.py
+  docker compose run --rm ingestion python ingest.py
   ```
-  By default this loads seasons 2023-24 through 2024–25 — see the `FIRST_SEASON`global variable and `get_seasons(FIRST_SEASON)` call in `main()` within `ingestion/ingest_v2.py` to change the range. Note that this dataset doesn't include `game_event_id`, so re-running it against already-loaded data will duplicate shots (see the comment in `insert_shots_from_df`).
+  By default this loads seasons 2023-24 through 2024–25 — see the `FIRST_SEASON`global variable and `get_seasons(FIRST_SEASON)` call in `main()` within `ingestion/ingest.py` to change the range. Note that this dataset doesn't include `game_event_id`, so re-running it against already-loaded data will duplicate shots (see the comment in `insert_shots_from_df`).
 
 ## API reference
 
