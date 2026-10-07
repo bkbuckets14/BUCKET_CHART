@@ -1,8 +1,11 @@
 *pycache*
 venv/
-side_file.txt
-ingestion/NBA_2004_2025_Shots.csv
 .env
+
+side_file.txt
 
 frontend/node_modules/
 frontend/dist/
+
+ingestion/date_of_last_run.txt
+ingestion/NBA_2004_2025_Shots.csv

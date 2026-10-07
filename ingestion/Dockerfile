@@ -7,4 +7,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["python", "ingest_v2.py"]
+# Nightly update by default. Run the one-time backfill with:
+#   docker compose run --rm ingestion python ingest_v2.py
+CMD ["python", "ingest_update.py"]
