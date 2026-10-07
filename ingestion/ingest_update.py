@@ -1,16 +1,11 @@
 """
-ingest_v2.py — Bucket Chart Data Ingestion
+ingest_update.py — Bucket Chart Data Ingestion
 ===========================================
 Pulls NBA shot data from the NBA Stats API and
 writes it to the PostgreSQL database via SQLAlchemy.
 
-Run order:
-  1. Teams      (static list from nba_api)
-  2. Players    (LeagueDashPlayerStats — live, season-aware)
-  3. Shots      (ShotChartDetail — one call per player per season type)
-
 Usage:
-  python ingest_v2.py
+  python ingest_update.py
 
 The DATABASE_URL environment variable must be set (handled by docker-compose).
 """
@@ -37,7 +32,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 import nba_api.library.http as nba_http
 from curl_cffi import requests as curl_requests
 from nba_api.stats.static import teams as static_teams
-from nba_api.stats.endpoints import leaguedashplayerstats, shotchartdetail
+from nba_api.stats.endpoints import shotchartdetail, commonplayerinfo
 
 
 # =============================================================================
@@ -46,7 +41,9 @@ from nba_api.stats.endpoints import leaguedashplayerstats, shotchartdetail
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 
-SEASONS = ["2024-25", "2025-26"]
+SEASON = "2026-27"
+# Playoffs returns no rows during the regular season, so it's safe to always
+# query both
 SEASON_TYPES = ["Regular Season", "Playoffs"]
 
 # The NBA API is rate-limited — always sleep between calls
@@ -54,6 +51,10 @@ SEASON_TYPES = ["Regular Season", "Playoffs"]
 API_DELAY = 2.0  # seconds between API calls
 
 API_TIMEOUT = 60
+
+# Postgres caps a statement at 65,535 bind parameters; Shot rows use 18 each,
+# so ~3,600 rows is the hard ceiling. 1,000 leaves plenty of headroom.
+SHOT_BATCH_SIZE = 1000
 
 NBA_HEADERS = {
     "Host": "stats.nba.com",
@@ -167,143 +168,100 @@ class Shot(Base):
 # HELPERS
 # =============================================================================
 
+def get_date_of_last_run() -> str:
+    '''
+    Gets the date of the last run from the file, so ingestion update knows where to start.
+    '''
+    with open("date_of_last_run.txt", "r") as f:
+        return f.read().strip()
 
-def upsert_teams(session: Session) -> None:
-    """
-    Load all 30 NBA teams from nba_api's static list and upsert into DB.
-    Uses ON CONFLICT DO NOTHING so re-runs are safe.
-    """
-    log.info("Upserting teams...")
-    all_teams = static_teams.get_teams()  # returns a list of dicts
+def single_player_call(player_id: int) -> dict:
 
-    for t in all_teams:
-        stmt = (
-            pg_insert(Team)
-            .values(
-                team_id=t["id"],
-                name=t["full_name"],
-                abbreviation=t["abbreviation"],
-                city=t["city"],
-                state=t["state"],
-                year_founded=t["year_founded"],
-            )
-            .on_conflict_do_nothing(index_elements=["team_id"])
-        )
-        session.execute(stmt)
-
-    session.commit()
-    log.info(f"  {len(all_teams)} teams upserted.")
-
-
-def upsert_players(session: Session, season: str, season_types: list[str]) -> list[int]:
-    """
-    Pull all players who recorded stats in the given season via
-    LeagueDashPlayerStats, across each of the given season types, and upsert
-    them. Returns the union of player_ids for use in shot ingestion.
-
-    CommonAllPlayers' IsOnlyCurrentSeason flag was tried first but turned out
-    to be unreliable for this: set to 1, it silently drops most of a past
-    season's players (its actual selection logic isn't documented anywhere
-    and doesn't correspond to any rule we could pin down); set to 0, it
-    ignores the season parameter entirely and returns every player in NBA
-    history. LeagueDashPlayerStats returns exactly the players with recorded
-    stats for a given season + season type, which is what we actually want.
-    """
-    log.info(f"Fetching players for {season}...")
-
-    # player_id -> row; querying every season_type since a player can appear
-    # in Playoffs stats without much Regular Season presence (e.g. a
-    # trade-deadline signing) and we don't want to miss their shots.
-    player_rows = {}
-
-    for season_type in season_types:
-        time.sleep(API_DELAY)
-
-        response = leaguedashplayerstats.LeagueDashPlayerStats(
-            season=season,
-            season_type_all_star=season_type,
-            headers=NBA_HEADERS,
-            timeout=API_TIMEOUT,
-        )
-        df = response.get_data_frames()[0]
-
-        for _, row in df.iterrows():
-            player_rows[int(row["PLAYER_ID"])] = row
-
-    for player_id, row in player_rows.items():
-        # Split full name into first/last (best effort)
-        parts = str(row["PLAYER_NAME"]).strip().split(" ", 1)
-        first_name = parts[0]
-        last_name = parts[1] if len(parts) > 1 else ""
-        full_name = row["PLAYER_NAME"]
-        team_id = int(row["TEAM_ID"]) if row["TEAM_ID"] else None
-
-        # team_id of 0 means the player has no current team (free agent etc.)
-        if team_id == 0:
-            team_id = None
-
-        stmt = (
-            pg_insert(Player)
-            .values(
-                player_id=player_id,
-                first_name=first_name,
-                last_name=last_name,
-                full_name=full_name,
-                is_active=True,
-                team_id=team_id,
-            )
-            .on_conflict_do_update(
-                index_elements=["player_id"],
-                set_={
-                    "full_name": full_name,
-                    "is_active": True,
-                    "team_id": team_id,
-                },
-            )
-        )
-        session.execute(stmt)
-
-    session.commit()
-    log.info(f"  {len(player_rows)} players upserted.")
-    return list(player_rows.keys())
-
-
-def ingest_shots_for_player(
-    session: Session,
-    player_id: int,
-    season: str,
-    season_type: str,
-) -> int:
-    """
-    Pull all shots for one player/season/season_type and write to DB.
-    Returns the number of shots inserted.
-    """
     time.sleep(API_DELAY)
 
+    response = commonplayerinfo.CommonPlayerInfo(
+        player_id=player_id,
+        headers=NBA_HEADERS,
+        timeout=API_TIMEOUT,
+    )
+
+    player_data = response.get_data_frames()[0].iloc[0].to_dict()
+
+    # Cast numpy types to plain Python — psycopg2 can't adapt numpy.int64
+    insert_data = {
+        "player_id": int(player_data["PERSON_ID"]),
+        "first_name": str(player_data["FIRST_NAME"]),
+        "last_name": str(player_data["LAST_NAME"]),
+        "full_name": str(player_data["DISPLAY_FIRST_LAST"]),
+        "is_active": True,
+        "team_id": int(player_data["TEAM_ID"]) or None,  # 0 = no team
+    }
+
+    return insert_data
+
+
+def insert_shots(
+    session: Session, start_date: str, end_date: str, season_type: str
+) -> int | None:
+    """
+    Returns the number of shots inserted, or None if the shot chart API call
+    failed (so main() knows not to advance the last-run date).
+    """
+
+    time.sleep(API_DELAY)
+    
     try:
         response = shotchartdetail.ShotChartDetail(
-            player_id=player_id,
+            player_id=0, #0 = all players
             team_id=0,  # 0 = all teams
-            season_nullable=season,
+            season_nullable=SEASON,
             season_type_all_star=season_type,
             context_measure_simple="FGA",  # FGA = makes + misses
+            date_from_nullable=start_date,
+            date_to_nullable=end_date,
             headers=NBA_HEADERS,
             timeout=API_TIMEOUT,
         )
         df = response.get_data_frames()[0]
     except Exception as e:
-        log.warning(f"    API error for player {player_id}: {e}")
-        return 0
+        log.warning(f"    API error: {e}")
+        return None
 
     if df.empty:
         return 0
 
     shots_to_insert = []
 
-    # Collect unique games from this batch first
+    # Collect unique games and players from this patch
     games_seen = {}
+    players_seen = {}
 
+    # Only look up players we don't already have — one API call per player
+    shot_player_ids = {int(pid) for pid in df["PLAYER_ID"].unique()}
+    known_player_ids = {
+        pid
+        for (pid,) in session.query(Player.player_id).filter(
+            Player.player_id.in_(shot_player_ids)
+        )
+    }
+
+    failed_player_ids = set()
+    for player_id in shot_player_ids - known_player_ids:
+        try:
+            players_seen[player_id] = single_player_call(player_id)
+        except Exception as e:
+            log.warning(f"    Player lookup failed for {player_id}: {e} — skipping their shots.")
+            failed_player_ids.add(player_id)
+
+    log.info(f" Number of Failed Player Ids: {len(failed_player_ids)} ")
+    
     for _, row in df.iterrows():
+        player_id = int(row["PLAYER_ID"])
+
+        # No player row means the shot would violate the foreign key
+        if player_id in failed_player_ids:
+            continue
+
         game_id = str(row["GAME_ID"])
         game_date = datetime.strptime(str(row["GAME_DATE"]), "%Y%m%d").date()
 
@@ -313,7 +271,7 @@ def ingest_shots_for_player(
             games_seen[game_id] = {
                 "game_id": game_id,
                 "game_date": game_date,
-                "season": season,
+                "season": SEASON,
                 "season_type": season_type,
                 "htm": row["HTM"],  # home team abbreviation
                 "vtm": row["VTM"],  # visitor team abbreviation
@@ -325,7 +283,7 @@ def ingest_shots_for_player(
                 "team_id": int(row["TEAM_ID"]),
                 "game_id": game_id,
                 "game_date": game_date,
-                "season": season,
+                "season": SEASON,
                 "period": int(row["PERIOD"]),
                 "minutes_remaining": int(row["MINUTES_REMAINING"]),
                 "seconds_remaining": int(row["SECONDS_REMAINING"]),
@@ -339,30 +297,55 @@ def ingest_shots_for_player(
                 "shot_zone_area": str(row["SHOT_ZONE_AREA"]),
                 "shot_zone_range": str(row["SHOT_ZONE_RANGE"]),
                 "game_event_id": (
-                    int(row["GAME_EVENT_ID"]) if row["GAME_EVENT_ID"] else None
+                    int(row["GAME_EVENT_ID"]) if pd.notna(row["GAME_EVENT_ID"]) else None
                 ),
             }
         )
 
-    # Upsert games before shots (foreign key dependency)
-    _upsert_games(session, games_seen, session)
+    # Upsert players before shots (foreign key dependency)
+    _upsert_players(session, players_seen)
 
-    # Bulk insert shots — skip duplicates
-    if shots_to_insert:
+    # Upsert games before shots (foreign key dependency)
+    _upsert_games(session, games_seen)
+
+    # Bulk insert shots in batches — skip duplicates
+    inserted = 0
+    for i in range(0, len(shots_to_insert), SHOT_BATCH_SIZE):
+        batch = shots_to_insert[i : i + SHOT_BATCH_SIZE]
         stmt = (
             pg_insert(Shot)
-            .values(shots_to_insert)
+            .values(batch)
             .on_conflict_do_nothing(
                 index_elements=["player_id", "game_id", "game_event_id"]
             )
         )
+        inserted += session.execute(stmt).rowcount
+    session.commit()
+
+    return inserted
+
+def _upsert_players(session: Session, players_seen: dict) -> None:
+    """
+    Upsert player rows.
+    """
+    player_data = list(players_seen.values())
+
+    # Bulk insert or update players
+    if player_data:
+        stmt = pg_insert(Player).values(player_data)
+        # stmt.excluded refers to each row's own proposed values
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["player_id"],
+            set_={
+                "full_name": stmt.excluded.full_name,
+                "is_active": True,
+                "team_id": stmt.excluded.team_id,
+            },
+        )
         session.execute(stmt)
         session.commit()
 
-    return len(shots_to_insert)
-
-
-def _upsert_games(session: Session, games_seen: dict, _) -> None:
+def _upsert_games(session: Session, games_seen: dict) -> None:
     """
     Upsert game rows. We resolve HTM/VTM abbreviations to team_ids here.
     """
@@ -404,49 +387,42 @@ def _upsert_games(session: Session, games_seen: dict, _) -> None:
 
 
 def main():
+    start_date = get_date_of_last_run()
+    end_date = datetime.now().strftime("%m/%d/%Y")
+
+
     log.info("=" * 60)
-    log.info(f"Bucket Chart Ingestion — Seasons: {', '.join(SEASONS)}")
+    log.info(f"Bucket Chart Ingestion — Starting from {start_date}")
     log.info("=" * 60)
 
     engine = create_engine(DATABASE_URL)
 
+    total_shots = 0
+    failed = False
+
     with Session(engine) as session:
+        for season_type in SEASON_TYPES:
+            log.info(f"Season type: {season_type}")
+            count = insert_shots(session, start_date, end_date, season_type)
+            if count is None:
+                failed = True
+                continue
+            total_shots += count
+            log.info(f"    {count} shots inserted.")
 
-        # ── Stage 1: Teams ────────────────────────────────────────────────────
-        upsert_teams(session)
-
-        total_shots = 0
-
-        for season in SEASONS:
-            log.info("-" * 60)
-            log.info(f"Season: {season}")
-
-            # ── Stage 2: Players ─────────────────────────────────────────────
-            # Rosters differ per season, so players are fetched fresh each time.
-            player_ids = upsert_players(session, season, SEASON_TYPES)
-
-            # ── Stage 3: Shots ───────────────────────────────────────────────
-            total_players = len(player_ids)
-
-            for i, player_id in enumerate(player_ids, start=1):
-                for season_type in SEASON_TYPES:
-                    log.info(
-                        f"  [{i}/{total_players}] Player {player_id} "
-                        f"— {season} {season_type}"
-                    )
-                    count = ingest_shots_for_player(
-                        session, player_id, season, season_type
-                    )
-                    total_shots += count
-                    if count:
-                        log.info(f"    {count} shots inserted.")
+    # Don't advance the last-run date if any API call failed, or the next
+    # run would skip this window entirely. Shots that did make it in are
+    # skipped as duplicates on the retry.
+    if failed:
+        log.error("Ingestion failed — date_of_last_run.txt left unchanged.")
+        return
 
     log.info("=" * 60)
     log.info(f"Ingestion complete. Total shots inserted: {total_shots}")
     log.info("=" * 60)
 
     with open("date_of_last_run.txt", "w") as f:
-        f.write(datetime.now().strftime("%m/%d/%Y"))
+        f.write(end_date)
 
 
 if __name__ == "__main__":
