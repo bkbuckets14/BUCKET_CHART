@@ -25,6 +25,7 @@ from sqlalchemy import (
     Date,
     ForeignKey,
     BigInteger,
+    Numeric,
 )
 from sqlalchemy.orm import declarative_base, Session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -51,6 +52,11 @@ SEASON_TYPES = ["Regular Season", "Playoffs"]
 API_DELAY = 2.0  # seconds between API calls
 
 API_TIMEOUT = 60
+
+# ShotChartDetail reports LOC_X/LOC_Y in tenths of a foot with the hoop at the
+# origin. The DB (and the frontend) store feet measured from the baseline, so
+# we divide by 10 and shift Y by the hoop's distance from the baseline.
+HOOP_Y_FT = 5.25
 
 # Postgres caps a statement at 65,535 bind parameters; Shot rows use 18 each,
 # so ~3,600 rows is the hard ceiling. 1,000 leaves plenty of headroom.
@@ -153,8 +159,8 @@ class Shot(Base):
     minutes_remaining = Column(Integer, nullable=False)
     seconds_remaining = Column(Integer, nullable=False)
     shot_made = Column(Boolean, nullable=False)
-    loc_x = Column(Integer, nullable=False)
-    loc_y = Column(Integer, nullable=False)
+    loc_x = Column(Numeric(6, 2), nullable=False)
+    loc_y = Column(Numeric(6, 2), nullable=False)
     shot_distance = Column(Integer, nullable=False)
     shot_type = Column(Text, nullable=False)
     action_type = Column(Text, nullable=False)
@@ -288,8 +294,8 @@ def insert_shots(
                 "minutes_remaining": int(row["MINUTES_REMAINING"]),
                 "seconds_remaining": int(row["SECONDS_REMAINING"]),
                 "shot_made": bool(row["SHOT_MADE_FLAG"]),
-                "loc_x": int(row["LOC_X"]),
-                "loc_y": int(row["LOC_Y"]),
+                "loc_x": row["LOC_X"] / 10,
+                "loc_y": row["LOC_Y"] / 10 + HOOP_Y_FT,
                 "shot_distance": int(row["SHOT_DISTANCE"]),
                 "shot_type": str(row["SHOT_TYPE"]),
                 "action_type": str(row["ACTION_TYPE"]),
