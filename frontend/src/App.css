@@ -3,12 +3,17 @@ header {
   padding: 32px 20px 8px;
 }
 
+header h1,
+header p {
+  color: var(--accent);
+}
+
 .controls {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: center;
-  gap: 20px;
+  gap: 16px;
   padding: 24px 20px;
   text-align: left;
 }
@@ -28,12 +33,21 @@ header {
 .control-group select,
 .control-group input {
   font: inherit;
+  font-size: 16px;
   padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
   min-width: 200px;
+}
+
+/* Fixed width so the row doesn't grow with the longest name on the roster
+   and push the Generate Chart button onto a second line. 230px fits the
+   longest names in the DB (24 chars, e.g. Kentavious Caldwell-Pope). The
+   team select needs no fixed width since it always lists all 30 teams. */
+#player-select {
+  width: 230px;
 }
 
 .date-range {
@@ -48,6 +62,7 @@ header {
 
 .generate-btn {
   font: inherit;
+  font-size: 16px;
   font-weight: 500;
   padding: 10px 20px;
   border-radius: 6px;

@@ -101,11 +101,6 @@ function CourtChart({ shots, loading, error }) {
           message="No shots recorded for this player in the selected range."
         />
       )}
-      {!loading && !error && shots === null && (
-        <div className="empty-state">
-          <p>Select a team, player, and date range, then click Generate Chart.</p>
-        </div>
-      )}
     </div>
   )
 }
