@@ -110,7 +110,7 @@ All endpoints are `GET`. Full interactive docs at `/docs` once the API is runnin
 | `/teams/{team_id}/players?date_from=&date_to=` | Players who played for this team, optionally scoped to a date range |
 | `/shots?player_id=&team_id=&date_from=&date_to=` | Shot data for one player on one team. `player_id`/`team_id` are required; at least one of `date_from`/`date_to` is required |
 
-## Potential Deployment Methods
+## Potential AWS Deployment Methods
 
 Project could be deployed to the web using AWS Lightsail, a simplied cloud hosting service.
 
