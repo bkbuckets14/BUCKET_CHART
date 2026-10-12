@@ -1,3 +1,0 @@
-# Dev-only tooling — not needed at runtime, install with:
-#   pip install -r requirements-dev.txt
-black==26.5.1
