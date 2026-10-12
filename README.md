@@ -52,7 +52,7 @@ BUCKET_CHART/
 4. Open the app: [http://localhost:5173](http://localhost:5173)
    The API is also directly browsable at [http://localhost:8000/docs](http://localhost:8000/docs).
 
-5. During the season, pull in new games with the daily update (or [schedule it](#scheduling-the-daily-update)):
+5. During the season, pull in new games with the daily update:
    ```
    docker compose run --rm ingestion
    ```
@@ -109,10 +109,4 @@ All endpoints are `GET`. Full interactive docs at `/docs` once the API is runnin
 | `/teams` | All 30 NBA teams |
 | `/teams/{team_id}/players?date_from=&date_to=` | Players who played for this team, optionally scoped to a date range |
 | `/shots?player_id=&team_id=&date_from=&date_to=` | Shot data for one player on one team. `player_id`/`team_id` are required; at least one of `date_from`/`date_to` is required |
-
-## Development
-
-**Frontend** (`frontend/`):
-```
-npm run dev            # start Vite dev server directly (outside Docker)
 ```
