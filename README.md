@@ -109,4 +109,16 @@ All endpoints are `GET`. Full interactive docs at `/docs` once the API is runnin
 | `/teams` | All 30 NBA teams |
 | `/teams/{team_id}/players?date_from=&date_to=` | Players who played for this team, optionally scoped to a date range |
 | `/shots?player_id=&team_id=&date_from=&date_to=` | Shot data for one player on one team. `player_id`/`team_id` are required; at least one of `date_from`/`date_to` is required |
-```
+
+## Potential Deployment Methods
+
+Project could be deployed to the web using AWS Lightsail, a simplied cloud hosting service.
+
+If someone wanted to use managed services, they could...
+1) Put the necessary frontend files in a private S3 bucket and have cloudfront read from it.
+2) Use ECS Fargate for API with a potential Application Load Balancer
+3) Use RDS with PostgreSQL for the database
+4) Use ECS Fargate for the Ingestion
+5) Use AWS Secrets manager for storing, managing, and rotating credientials
+6) Use CloudWatch Logs to monitor services/logs
+
