@@ -115,8 +115,8 @@ All endpoints are `GET` and served under the `/api` prefix. Full interactive doc
 Project could be deployed to the web using AWS Lightsail, a simplied cloud hosting service.
 
 If someone wanted to use managed services, they could...
-1) Put the necessary frontend files in a private S3 bucket and have cloudfront read from it.
-2) Use ECS Fargate for API with a potential Application Load Balancer
+1) Put the necessary frontend files in a private S3 bucket and have Cloudfront read from it.
+2) Use ECS Fargate for API with an Application Load Balancer
 3) Use RDS with PostgreSQL for the database
 4) Use ECS Fargate for the Ingestion
 5) Use AWS Secrets manager for storing, managing, and rotating credientials
