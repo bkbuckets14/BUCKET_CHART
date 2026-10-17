@@ -1,6 +1,7 @@
 *pycache*
 venv/
 .env
+bucket_chart.dump
 
 frontend/node_modules/
 frontend/dist/

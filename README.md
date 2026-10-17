@@ -50,7 +50,7 @@ BUCKET_CHART/
    This scrapes every player's shots for the configured seasons, so expect it to take a few hours. See [Loading data](#loading-data) for details.
 
 4. Open the app: [http://localhost:5173](http://localhost:5173)
-   The API is also directly browsable at [http://localhost:8000/docs](http://localhost:8000/docs).
+   The API is also directly browsable at [http://localhost:8000/api/docs](http://localhost:8000/api/docs).
 
 5. During the season, pull in new games with the daily update:
    ```
@@ -102,13 +102,13 @@ By default this loads seasons 2023-24 through 2024-25. To change the range, see 
 
 ## API reference
 
-All endpoints are `GET`. Full interactive docs at `/docs` once the API is running.
+All endpoints are `GET` and served under the `/api` prefix. Full interactive docs at `/api/docs` once the API is running.
 
 | Endpoint | Description |
 |---|---|
-| `/teams` | All 30 NBA teams |
-| `/teams/{team_id}/players?date_from=&date_to=` | Players who played for this team, optionally scoped to a date range |
-| `/shots?player_id=&team_id=&date_from=&date_to=` | Shot data for one player on one team. `player_id`/`team_id` are required; at least one of `date_from`/`date_to` is required |
+| `/api/teams` | All 30 NBA teams |
+| `/api/teams/{team_id}/players?date_from=&date_to=` | Players who played for this team, optionally scoped to a date range |
+| `/api/shots?player_id=&team_id=&date_from=&date_to=` | Shot data for one player on one team. `player_id`/`team_id` are required; at least one of `date_from`/`date_to` is required |
 
 ## Potential AWS Deployment Methods
 

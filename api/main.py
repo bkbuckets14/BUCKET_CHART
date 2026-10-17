@@ -3,7 +3,8 @@ main.py — Bucket Chart API
 ===========================
 FastAPI backend for the Bucket Chart shot chart application.
 
-Endpoints:
+Endpoints (all served under the /api prefix, e.g. /api/teams, so CloudFront
+can route /api/* to this service):
   GET /                                — health check
   GET /teams                           — all 30 NBA teams for dropdown
   GET /teams/{team_id}/players?date_from=&date_to=
@@ -23,7 +24,7 @@ import os
 from datetime import date
 from typing import Optional
 
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import APIRouter, FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import (
@@ -43,10 +44,15 @@ from sqlalchemy.orm import declarative_base, Session
 # =============================================================================
 
 DATABASE_URL = os.environ["DATABASE_URL"]
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)  # drop stale pooled connections
 Base = declarative_base()
 
-app = FastAPI(title="Bucket Chart API")
+app = FastAPI(
+    title="Bucket Chart API",
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
+)
+router = APIRouter(prefix="/api")
 
 # Allow all origins during development — tighten this in production
 app.add_middleware(
@@ -151,13 +157,13 @@ class ShotResponse(BaseModel):
 # =============================================================================
 
 
-@app.get("/")
+@router.get("/")
 def health_check():
     """Basic health check — confirms the API is running."""
     return {"status": "ok", "message": "Bucket Chart API is running."}
 
 
-@app.get("/teams", response_model=list[TeamResponse])
+@router.get("/teams", response_model=list[TeamResponse])
 def get_teams():
     """
     Returns all 30 NBA teams sorted alphabetically by name.
@@ -168,7 +174,7 @@ def get_teams():
         return teams
 
 
-@app.get("/teams/{team_id}/players", response_model=list[PlayerResponse])
+@router.get("/teams/{team_id}/players", response_model=list[PlayerResponse])
 def get_team_players(
     team_id: int,
     date_from: Optional[date] = Query(
@@ -206,7 +212,7 @@ def get_team_players(
         return players
 
 
-@app.get("/players/search", response_model=list[PlayerResponse])
+@router.get("/players/search", response_model=list[PlayerResponse])
 def search_players(
     name: str = Query(..., min_length=1, description="Player name search string")
 ):
@@ -227,7 +233,7 @@ def search_players(
         return players
 
 
-@app.get("/shots", response_model=list[ShotResponse])
+@router.get("/shots", response_model=list[ShotResponse])
 def get_shots(
     player_id: int = Query(..., description="Player ID (required)"),
     team_id: int = Query(
@@ -284,3 +290,7 @@ def get_shots(
             }
             for r in results
         ]
+
+
+# Registered last — include_router copies the routes defined above at call time.
+app.include_router(router)
